@@ -6,9 +6,3 @@ build:
 
 btf:
 	bpftool btf dump file /sys/kernel/btf/vmlinux format c > vmlinux.h
-
-run:
-	./hello
-
-dump:
-	llvm-objdump -d hello.bpf.o
