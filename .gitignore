@@ -1,5 +1,3 @@
-bootstrap
-bootstrap.bpf.o
-bootstrap.o
-bootstrap.skel.h
+*.o
+*.skel.h
 vmlinux.h

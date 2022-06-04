@@ -1,0 +1,10 @@
+{
+    "editor.tabSize": 8,
+    "files.associations": {
+        "uprobe.skel.h": "c",
+        "bootstrap.h": "c",
+        "uprobe.h": "c",
+        "numbers": "c"
+    },
+    "C_Cpp.errorSquiggles": "Disabled"
+}
