@@ -1,4 +1,3 @@
-#define __x86_64__
 #include "uprobe.h"
 #include "vmlinux.h"
 #include <bpf/bpf_core_read.h>
@@ -16,11 +15,9 @@ struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
 	__type(key, u32);
 	__type(value, unsigned long);
-	__uint(max_entries, 256);
+	__uint(max_entries, 1);
 } array SEC(".maps");
 
-// RAX, RBX, RCX, RDI, RSI, R8, R9, R10, R11
-// conn buffer.bash buffer.len buffer.cap
 SEC("uprobe/tls_write_enter")
 int crypto_tls_write_enter(struct pt_regs *ctx)
 {
@@ -38,7 +35,7 @@ int crypto_tls_write_enter(struct pt_regs *ctx)
 	return 0;
 }
 
-SEC("uretprobe/tls_read_enter")
+SEC("uprobe/tls_read_enter")
 int crypto_tls_read_enter(struct pt_regs *ctx)
 {
 	u32 id = 0;
@@ -49,8 +46,7 @@ int crypto_tls_read_enter(struct pt_regs *ctx)
 	return 0;
 }
 
-// FIXME: 无法正确获取退出时的参数,获取参数方式可能有问题
-SEC("uretprobe/tls_read_exit")
+SEC("uprobe/tls_read_exit")
 int crypto_tls_read_exit(struct pt_regs *ctx)
 {
 	struct event *e;
