@@ -22,14 +22,12 @@ static int print_fn(enum libbpf_print_level level, const char *format,
 
 static int handle_event(void *ctx, void *data, size_t size)
 {
-	const struct crypto_event *e = data;
+	const struct event *e = data;
 	printf("===================================================== size=%d, type=%d\n",
 	       e->size, e->type);
-	for (int idx = 9; idx < e->size && idx < BUFFER_MAX; ++idx) {
-		if (!isprint(e->buffer[idx]))
-			continue;
+	for (int idx = 0; idx < e->size && idx < BUFFER_MAX; ++idx)
 		putchar(e->buffer[idx]);
-	}
+
 	printf("\n=====================================================\n");
 	return 0;
 }
@@ -63,10 +61,19 @@ int main()
 		goto cleanup;
 	}
 
-	// FIXME: 无法正确获取退出时的参数,函数退出点可能有问题
+	skel->links.crypto_tls_read_enter = bpf_program__attach_uprobe(
+		skel->progs.crypto_tls_read_enter, false, -1,
+		"/root/uranus/cmd/web/uranus-web", 0x201240);
+	if (!skel->links.crypto_tls_read_enter) {
+		error = -errno;
+		fprintf(stderr, "Failed to attach crypto_tls_read_enter: %d\n",
+			error);
+		goto cleanup;
+	}
+
 	skel->links.crypto_tls_read_exit = bpf_program__attach_uprobe(
 		skel->progs.crypto_tls_read_exit, false, -1,
-		"/root/uranus/cmd/web/uranus-web", 0x201240 + 0x20);
+		"/root/uranus/cmd/web/uranus-web", 0x20156c);
 	if (!skel->links.crypto_tls_read_exit) {
 		error = -errno;
 		fprintf(stderr, "Failed to attach crypto_tls_read_exit: %d\n",
