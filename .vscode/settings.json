@@ -4,7 +4,16 @@
         "uprobe.skel.h": "c",
         "bootstrap.h": "c",
         "uprobe.h": "c",
-        "numbers": "c"
+        "numbers": "c",
+        "array": "c",
+        "*.tcc": "c",
+        "functional": "c",
+        "random": "c",
+        "new": "c",
+        "ostream": "c",
+        "streambuf": "c",
+        "type_traits": "c",
+        "tuple": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

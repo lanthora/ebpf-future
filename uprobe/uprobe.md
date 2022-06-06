@@ -112,16 +112,19 @@ func (sh serverHandler) ServeHTTP(rw ResponseWriter, req *Request)
 
 ## 追踪加密解密
 
-src/stirling/source_connectors/socket_tracer/bcc_bpf/go_tls_trace.c
-
 ```go
 crypto/tls.(*Conn).Write
 crypto/tls.(*Conn).Read
 ```
 
-00000000005ffe40  1925 FUNC    GLOBAL DEFAULT    1 crypto/tls.(*Conn).Write
-0000000000601240  1022 FUNC    GLOBAL DEFAULT    1 crypto/tls.(*Conn).Read
+`uprobe` 可以在函数入口拿到参数, 因此可以获得 `Write` 函数的参数,也就是即将要加密的明文.
 
-echo 'p /root/uranus/cmd/web/uranus-web:0x1ffe40' >> /sys/kernel/debug/tracing/uprobe_events
-echo 'p /root/uranus/cmd/web/uranus-web:0x201240' >> /sys/kernel/debug/tracing/uprobe_events
-echo 1 > /sys/kernel/debug/tracing/events/uprobes/enable
+但是 golang 中 [不能使用 uretprobe](https://github.com/iovisor/bcc/issues/1320), 因此不能在 `Read` 函数执行成功后读出的明文.
+
+但是文中给出了一个 [存在缺陷](https://github.com/iovisor/bcc/issues/1320#issuecomment-441783319) 的解决方案: 扫描整个 `Read` 函数,记录 `call` 命令的位置,并在这些位置上设置 `uprobe` 来模拟 `uretprobe`.
+
+整个方案在 Go 1.18.3 上测试可行.但目前还存在以下问题:
+
+1. 根据函数名(符号名)和二进制文件自动获取用于设置 `uprobe` 和模拟 `uretprobe` 的地址.在用户空间独立完成,eBPF仅知道设置了 `uprobe`,对模拟过程无感知.
+2. 一个 `uprobe` 函数设置给一个进程的多个地址,解决模拟 `uretprobe` 存在多个返回位置的问题.这是函数接口用法的问题,应该好解决.
+3. 根据 Go 版本确认函数参数的具体位置(如果参数在栈上,确定与栈指针的相对位置;如果在寄存器上,确定具体的寄存器),这一部分应该由用户空间获取信息,并把信息传递内核空间(eBPF).
