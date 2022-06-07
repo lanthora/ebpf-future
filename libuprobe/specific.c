@@ -37,6 +37,18 @@ static int analyze_sym(struct uprobe_specific_internal *i)
 	return ERROR_ELF_NO_SYM;
 }
 
+static int fill_spec(struct uprobe_specific_internal *i)
+{
+	i->spec->entry = i->sym.st_value;
+	i->spec->size = i->sym.st_size;
+	i->data = elf_getdata_rawchunk(i->elf, i->spec->entry, i->spec->size,
+				       ELF_T_BYTE);
+	int retcnt = 0;
+	uint8_t *raw = i->data->d_buf;
+
+	return 0;
+}
+
 static int analyze_internal(struct uprobe_specific_internal *internal)
 {
 	int error = 0;
@@ -48,8 +60,10 @@ static int analyze_internal(struct uprobe_specific_internal *internal)
 	if (error)
 		goto out;
 
-	internal->spec->entry = internal->sym.st_value;
-	internal->spec->size = internal->sym.st_size;
+	error = fill_spec(internal);
+	if (error)
+		goto out;
+
 out:
 	return error;
 }

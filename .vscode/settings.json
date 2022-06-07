@@ -13,7 +13,8 @@
         "ostream": "c",
         "streambuf": "c",
         "type_traits": "c",
-        "tuple": "c"
+        "tuple": "c",
+        "libasm.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }
