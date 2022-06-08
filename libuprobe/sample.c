@@ -1,26 +1,30 @@
 #include "specific.h"
 #include "string.h"
+#include <argp.h>
 #include <assert.h>
 #include <stdio.h>
 
-int main()
+int main(int argc, char *argv[])
 {
 	int error = 0;
 	struct uprobe_specific spec;
-	spec.bin = "/root/uranus/cmd/web/uranus-web";
-	spec.sym = "crypto/tls.(*Conn).Read";
+
+	if (argc < 3)
+		return ERROR_INVALID;
+
+	spec.bin = argv[1];
+	spec.sym = argv[2];
 
 	error = uprobe_specific_analyze(&spec);
-	if (error) {
-		printf("error: %d\n", error);
+	if (error)
 		return error;
-	}
 
-	printf("bin:\n\t%s\n", spec.bin);
-	printf("sym:\n\t%s\n", spec.sym);
-	printf("entry:\n\t%p\n", spec.entry);
-	printf("rets:\n", spec.rets[0]);
-	for (int idx = 0; idx < LIB_UPROBE_RET_MAX && spec.rets[idx]; ++idx)
-		printf("\t%p\n", spec.rets[idx]);
+	printf("bin: %s\n", spec.bin);
+	printf("sym: %s\n", spec.sym);
+	printf("entry: %p\n", spec.entry);
+	printf("rets: %p", spec.rets[0]);
+	for (int idx = 1; idx < LIB_UPROBE_RET_MAX && spec.rets[idx]; ++idx)
+		printf(", %p", spec.rets[idx]);
+	printf("\n");
 	return 0;
 }

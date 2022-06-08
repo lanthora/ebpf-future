@@ -21,6 +21,7 @@
         "string": "c",
         "string_view": "c",
         "libasm.h": "c",
-        "disasmtypes.h": "c"
+        "disasmtypes.h": "c",
+        "argp.h": "c"
     }
 }
