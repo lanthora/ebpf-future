@@ -1,10 +1,17 @@
 #include "specific.h"
+#include "bddisasm/bddisasm.h"
+#include "bddisasm/disasmtypes.h"
 #include "internal.h"
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
+void *nd_memset(void *s, int c, ND_SIZET n)
+{
+	memset(s, c, n);
+}
 
 static int analyze_section(struct uprobe_specific_internal *i)
 {
@@ -37,15 +44,57 @@ static int analyze_sym(struct uprobe_specific_internal *i)
 	return ERROR_ELF_NO_SYM;
 }
 
+static int file_spec_entry_size(struct uprobe_specific_internal *i)
+{
+	i->spec->entry = i->sym.st_value - 0x400000;
+	i->spec->size = i->sym.st_size;
+	return 0;
+}
+
+static int fill_spec_rets(struct uprobe_specific_internal *i)
+{
+	INSTRUX ix;
+	NDSTATUS status;
+	int cnt;
+	size_t offset;
+	uint8_t *raw;
+	size_t pc;
+	Elf_Data *data;
+	Elf *elf;
+	struct uprobe_specific *spec;
+	spec = i->spec;
+	elf = i->elf;
+
+	data = elf_getdata_rawchunk(elf, spec->entry, spec->size, ELF_T_ADDR);
+	raw = data->d_buf;
+
+	pc = i->spec->entry;
+	offset = 0;
+	cnt = 0;
+
+	while (pc <= spec->entry + spec->size && cnt < LIB_UPROBE_RET_MAX) {
+		status = NdDecode(&ix, raw + offset, ND_CODE_64, ND_DATA_64);
+		if (!ND_SUCCESS(status))
+			return ERROR_DECODE_FAILD;
+
+		if (ix.Instruction == ND_INS_RETF ||
+		    ix.Instruction == ND_INS_RETN) {
+			spec->rets[cnt++] = pc;
+		}
+		offset += ix.Length;
+		pc += ix.Length;
+	}
+	return 0;
+}
+
 static int fill_spec(struct uprobe_specific_internal *i)
 {
-	i->spec->entry = i->sym.st_value;
-	i->spec->size = i->sym.st_size;
-	i->data = elf_getdata_rawchunk(i->elf, i->spec->entry, i->spec->size,
-				       ELF_T_BYTE);
-	int retcnt = 0;
-	uint8_t *raw = i->data->d_buf;
+	int error = 0;
+	if (error = file_spec_entry_size(i))
+		return error;
 
+	if (error = fill_spec_rets(i))
+		return error;
 	return 0;
 }
 

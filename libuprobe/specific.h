@@ -4,7 +4,7 @@
 #include <sys/types.h>
 
 /* 函数中 ret 指令的个数 */
-#define LIB_UPROBE_RET_MAX 8
+#define LIB_UPROBE_RET_MAX 16
 
 typedef enum {
 	ERROR_UNSPEC,
@@ -15,6 +15,7 @@ typedef enum {
 	ERROR_GELF_GETSHDR,
 	ERROR_ELF_NO_TEXT,
 	ERROR_ELF_NO_SYM,
+	ERROR_DECODE_FAILD,
 } LIB_UPROBE_ERROR_TYPE;
 
 struct uprobe_specific {

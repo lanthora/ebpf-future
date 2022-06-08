@@ -20,6 +20,7 @@
         "array": "c",
         "string": "c",
         "string_view": "c",
-        "libasm.h": "c"
+        "libasm.h": "c",
+        "disasmtypes.h": "c"
     }
 }
