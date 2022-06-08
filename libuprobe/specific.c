@@ -15,11 +15,21 @@ void *nd_memset(void *s, int c, ND_SIZET n)
 
 static int analyze_section(struct uprobe_specific_internal *i)
 {
+	size_t shstrndx;
+	char *section;
 	i->section = NULL;
+
+	if (elf_getshdrstrndx(i->elf, &shstrndx))
+		return ERROR_ELF_GETSHDRSTRNDX;
+
 	while ((i->section = elf_nextscn(i->elf, i->section))) {
-		if (gelf_getshdr(i->section, &i->shdr) != &i->shdr) {
+		if (gelf_getshdr(i->section, &i->shdr) != &i->shdr)
 			return ERROR_GELF_GETSHDR;
-		}
+
+		section = elf_strptr(i->elf, shstrndx, i->shdr.sh_name);
+		if (!strcmp(section, ".text"))
+			i->offset = i->shdr.sh_addr - i->shdr.sh_offset;
+
 		if (i->shdr.sh_type == SHT_SYMTAB)
 			return 0;
 	}
@@ -46,7 +56,7 @@ static int analyze_sym(struct uprobe_specific_internal *i)
 
 static int file_spec_entry_size(struct uprobe_specific_internal *i)
 {
-	i->spec->entry = i->sym.st_value - 0x400000;
+	i->spec->entry = i->sym.st_value - i->offset;
 	i->spec->size = i->sym.st_size;
 	return 0;
 }

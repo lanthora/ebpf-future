@@ -12,6 +12,7 @@ struct uprobe_specific_internal {
 	GElf_Sym sym;
 	GElf_Shdr shdr;
 	Elf_Data *data;
+	size_t offset;
 };
 
 #endif
