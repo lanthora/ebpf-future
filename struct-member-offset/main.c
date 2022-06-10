@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <limits.h>
 #include <stdbool.h>
 
 struct structure_member_offset {
@@ -129,11 +130,12 @@ int main(int argc, char *argv[])
 		.file = argv[1],
 		.structure = argv[2],
 		.member = argv[3],
-		.offset = 0,
+		.offset = ULLONG_MAX,
 	};
 
 	rc = calculate_structure_member_offset(&instance);
 	assert(rc == 0);
+	assert(instance.offset != ULLONG_MAX);
 
 	printf("file: %s\n", instance.file);
 	printf("structure: %s\n", instance.structure);
