@@ -71,6 +71,9 @@ static int dfs(struct structure_member_offset *instance, Dwarf_Debug dbg,
 	Dwarf_Die child = NULL;
 	int rc = 0;
 
+	if (instance->offset != ULLONG_MAX)
+		return 0;
+
 	calculate(instance, dbg, die);
 
 	rc = dwarf_child(die, &child, &err);
