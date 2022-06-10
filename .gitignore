@@ -2,3 +2,4 @@
 *.skel.h
 .vscode
 vmlinux.h
+struct-member-offset/struct-member-offset-tool

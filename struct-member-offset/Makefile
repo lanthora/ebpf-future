@@ -1,5 +1,5 @@
 build:
-	gcc main.c -ldwarf -lelf -o main
+	gcc --static main.c -ldwarf -lelf -lz -o struct-member-offset-tool
 
 clean:
 	rm main
