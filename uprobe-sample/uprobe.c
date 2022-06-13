@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <sys/resource.h>
 #include <time.h>
+#include <assert.h>
 
 static volatile bool exiting = false;
 
@@ -23,8 +24,8 @@ static int print_fn(enum libbpf_print_level level, const char *format,
 static int handle_event(void *ctx, void *data, size_t size)
 {
 	const struct event *e = data;
-	printf("===================================================== size=%d, type=%d\n",
-	       e->size, e->type);
+	printf("===================================================== size=%d type=%d fd=%d\n",
+	       e->size, e->type, e->fd);
 	for (int idx = 0; idx < e->size && idx < BUFFER_MAX; ++idx)
 		putchar(e->buffer[idx]);
 
@@ -32,11 +33,18 @@ static int handle_event(void *ctx, void *data, size_t size)
 	return 0;
 }
 
-int main()
+int main(int argc, char *argv[])
 {
 	struct ring_buffer *rb = NULL;
 	struct uprobe_bpf *skel;
+	struct bpf_link *link;
+	int idx = 4;
 	int error;
+
+	assert(argc >= 5);
+	const char *binary_path = argv[1];
+	const size_t write_enter_offset = strtol(argv[2], NULL, 16);
+	const size_t read_enter_offset = strtol(argv[3], NULL, 16);
 
 	libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
 	libbpf_set_print(print_fn);
@@ -45,49 +53,27 @@ int main()
 	signal(SIGTERM, sig_handler);
 
 	skel = uprobe_bpf__open_and_load();
-	if (!skel) {
-		error = -1;
-		fprintf(stderr, "Failed to open and load BPF skeleton\n");
-		goto cleanup;
-	}
+	assert(skel);
 
-	skel->links.crypto_tls_write_enter = bpf_program__attach_uprobe(
-		skel->progs.crypto_tls_write_enter, false, -1,
-		"/root/uranus/cmd/web/uranus-web", 0x1ffe40);
-	if (!skel->links.crypto_tls_write_enter) {
-		error = -errno;
-		fprintf(stderr, "Failed to attach crypto_tls_write_enter: %d\n",
-			error);
-		goto cleanup;
-	}
+	link = bpf_program__attach_uprobe(skel->progs.write_enter, false, -1,
+					  binary_path, write_enter_offset);
+	assert(link);
 
-	skel->links.crypto_tls_read_enter = bpf_program__attach_uprobe(
-		skel->progs.crypto_tls_read_enter, false, -1,
-		"/root/uranus/cmd/web/uranus-web", 0x201240);
-	if (!skel->links.crypto_tls_read_enter) {
-		error = -errno;
-		fprintf(stderr, "Failed to attach crypto_tls_read_enter: %d\n",
-			error);
-		goto cleanup;
-	}
+	link = bpf_program__attach_uprobe(skel->progs.read_enter, false, -1,
+					  binary_path, read_enter_offset);
+	assert(link);
 
-	skel->links.crypto_tls_read_exit = bpf_program__attach_uprobe(
-		skel->progs.crypto_tls_read_exit, false, -1,
-		"/root/uranus/cmd/web/uranus-web", 0x20156c);
-	if (!skel->links.crypto_tls_read_exit) {
-		error = -errno;
-		fprintf(stderr, "Failed to attach crypto_tls_read_exit: %d\n",
-			error);
-		goto cleanup;
+	for (idx = 4; idx < argc; ++idx) {
+		const size_t read_exit_offset = strtol(argv[idx], NULL, 16);
+		link = bpf_program__attach_uprobe(skel->progs.read_exit, false,
+						  -1, binary_path,
+						  read_exit_offset);
+		assert(link);
 	}
 
 	rb = ring_buffer__new(bpf_map__fd(skel->maps.rb), handle_event, NULL,
 			      NULL);
-	if (!rb) {
-		error = -1;
-		fprintf(stderr, "Failed to create ring buffer\n");
-		goto cleanup;
-	}
+	assert(rb);
 
 	while (!exiting) {
 		error = ring_buffer__poll(rb, 100);
@@ -95,13 +81,9 @@ int main()
 			error = 0;
 			break;
 		}
-		if (error < 0) {
-			printf("Error polling perf buffer: %d\n", error);
-			break;
-		}
+		assert(error >= 0);
 	}
 
-cleanup:
 	ring_buffer__free(rb);
 	uprobe_bpf__destroy(skel);
 

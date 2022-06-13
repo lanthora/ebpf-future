@@ -14,14 +14,19 @@ struct {
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
 	__type(key, u32);
-	__type(value, unsigned long);
+	__type(value, struct tls_conn);
 	__uint(max_entries, 1);
 } array SEC(".maps");
 
-SEC("uprobe/tls_write_enter")
-int crypto_tls_write_enter(struct pt_regs *ctx)
+SEC("uprobe/crypto/tls.(*Conn).Write")
+int write_enter(struct pt_regs *ctx)
 {
 	struct event *e;
+	struct go_interface i;
+	void *ptr;
+
+	__builtin_memset(&i, 0, sizeof(i));
+
 	e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
 	if (!e)
 		return 0;
@@ -30,39 +35,58 @@ int crypto_tls_write_enter(struct pt_regs *ctx)
 	e->size = ctx->cx;
 	bpf_probe_read_user(&e->buffer, BUFFER_MAX, (char *)ctx->bx);
 
+	bpf_probe_read_user(&i, sizeof(i), (void *)ctx->ax);
+	bpf_probe_read_user(&ptr, sizeof(i), i.ptr);
+	bpf_probe_read_user(&e->fd, sizeof(e->fd), ptr + 16);
+
 	bpf_ringbuf_submit(e, 0);
 
 	return 0;
 }
 
-SEC("uprobe/tls_read_enter")
-int crypto_tls_read_enter(struct pt_regs *ctx)
+SEC("uprobe/crypto/tls.(*Conn).Read")
+int read_enter(struct pt_regs *ctx)
 {
 	u32 id = 0;
-	unsigned long rbx;
-	rbx = ctx->bx;
-	bpf_printk("enter rbx=%p\n", rbx);
-	bpf_map_update_elem(&array, &id, &rbx, BPF_ANY);
+	struct tls_conn c;
+	struct go_interface i;
+	void *ptr;
+
+	__builtin_memset(&c, 0, sizeof(c));
+	__builtin_memset(&i, 0, sizeof(i));
+
+	c.buffer = (char *)ctx->bx;
+
+	bpf_probe_read_user(&i, sizeof(i), (void *)ctx->ax);
+	bpf_probe_read_user(&ptr, sizeof(i), i.ptr);
+	bpf_probe_read_user(&c.fd, sizeof(c.fd), ptr + 16);
+
+	bpf_map_update_elem(&array, &id, &c, BPF_ANY);
 	return 0;
 }
 
-SEC("uprobe/tls_read_exit")
-int crypto_tls_read_exit(struct pt_regs *ctx)
+SEC("uprobe/crypto/tls.(*Conn).Read")
+int read_exit(struct pt_regs *ctx)
 {
 	struct event *e;
-	unsigned long *rbx;
+	struct tls_conn *c;
 	u32 id = 0;
-	rbx = bpf_map_lookup_elem(&array, &id);
-	if (!rbx)
+
+	if (!ctx->ax)
 		return 0;
-	bpf_printk("exit rbx=%p\n", (*rbx));
+
+	c = bpf_map_lookup_elem(&array, &id);
+	if (!c)
+		return 0;
+
 	e = bpf_ringbuf_reserve(&rb, sizeof(*e), 0);
 	if (!e)
 		return 0;
 
 	e->type = EVENT_READ_EXIT;
 	e->size = ctx->ax;
-	bpf_probe_read_user(&e->buffer, BUFFER_MAX, (char *)(*rbx));
+	bpf_probe_read_user(&e->buffer, BUFFER_MAX, c->buffer);
+	e->fd = c->fd;
 
 	bpf_ringbuf_submit(e, 0);
 	return 0;

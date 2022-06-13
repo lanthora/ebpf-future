@@ -12,7 +12,18 @@
 struct event {
 	unsigned int type;
 	unsigned int size;
+	int fd;
 	char buffer[BUFFER_MAX + 1];
+};
+
+struct go_interface {
+	long long type;
+	void *ptr;
+};
+
+struct tls_conn {
+	int fd;
+	char *buffer;
 };
 
 #endif
