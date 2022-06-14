@@ -9,10 +9,14 @@
 #define BUFFER_MAX 0x3FF
 #define EVENT_MAX 1024
 
+#define MAX_SYSTEM_THREADS 128
+
 struct event {
 	unsigned int type;
 	unsigned int size;
 	int fd;
+	long long int goid;
+	long long int tgid;
 	char buffer[BUFFER_MAX + 1];
 };
 
@@ -24,6 +28,11 @@ struct go_interface {
 struct tls_conn {
 	int fd;
 	char *buffer;
+};
+
+struct tls_conn_key {
+	int tgid;
+	long long int goid;
 };
 
 #endif

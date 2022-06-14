@@ -24,8 +24,8 @@ static int print_fn(enum libbpf_print_level level, const char *format,
 static int handle_event(void *ctx, void *data, size_t size)
 {
 	const struct event *e = data;
-	printf("===================================================== size=%d type=%d fd=%d\n",
-	       e->size, e->type, e->fd);
+	printf("===================================================== size=%d type=%d fd=%d tgid=%lld goid=%lld\n",
+	       e->size, e->type, e->fd, e->tgid, e->goid);
 	for (int idx = 0; idx < e->size && idx < BUFFER_MAX; ++idx)
 		putchar(e->buffer[idx]);
 
@@ -41,10 +41,11 @@ int main(int argc, char *argv[])
 	int idx = 4;
 	int error;
 
-	assert(argc >= 5);
+	assert(argc >= 6);
 	const char *binary_path = argv[1];
-	const size_t write_enter_offset = strtol(argv[2], NULL, 16);
-	const size_t read_enter_offset = strtol(argv[3], NULL, 16);
+	const size_t runtime_casgstatus_offset = strtol(argv[2], NULL, 16);
+	const size_t write_enter_offset = strtol(argv[3], NULL, 16);
+	const size_t read_enter_offset = strtol(argv[4], NULL, 16);
 
 	libbpf_set_strict_mode(LIBBPF_STRICT_ALL);
 	libbpf_set_print(print_fn);
@@ -55,6 +56,11 @@ int main(int argc, char *argv[])
 	skel = uprobe_bpf__open_and_load();
 	assert(skel);
 
+	link = bpf_program__attach_uprobe(skel->progs.runtime_casgstatus, false,
+					  -1, binary_path,
+					  runtime_casgstatus_offset);
+	assert(link);
+
 	link = bpf_program__attach_uprobe(skel->progs.write_enter, false, -1,
 					  binary_path, write_enter_offset);
 	assert(link);
@@ -63,7 +69,7 @@ int main(int argc, char *argv[])
 					  binary_path, read_enter_offset);
 	assert(link);
 
-	for (idx = 4; idx < argc; ++idx) {
+	for (idx = 5; idx < argc; ++idx) {
 		const size_t read_exit_offset = strtol(argv[idx], NULL, 16);
 		link = bpf_program__attach_uprobe(skel->progs.read_exit, false,
 						  -1, binary_path,
